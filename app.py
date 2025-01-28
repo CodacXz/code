@@ -7,7 +7,7 @@ import requests
 analyzer = SentimentIntensityAnalyzer()
 
 # Fetch News
-API_KEY = st.secrets["1272ac9cec4e43108bd69ffd1dc231cb"]  # Use Streamlit Secrets for API key
+API_KEY = "1272ac9cec4e43108bd69ffd1dc231cb"  # Use Streamlit Secrets for API key
 NEWS_API_URL = "https://newsapi.org/v2/everything"
 
 params = {
