@@ -110,6 +110,11 @@ def fetch_all_news():
 
     all_news = []
 
+    # Debug output to see the number of articles retrieved
+    st.write(f"Fetched {len(api_news)} articles from NewsAPI")
+    st.write(f"Fetched {len(argaam_news)} articles from Argaam")
+    st.write(f"Fetched {len(mubasher_news)} articles from Mubasher")
+
     # Process NewsAPI articles
     for article in api_news:
         title = article['title']
@@ -129,6 +134,12 @@ def fetch_all_news():
     
     # Combine Argaam and Mubasher with NewsAPI articles
     all_news += argaam_news + mubasher_news
+
+    # If no news was fetched, load the latest known articles as a fallback
+    if not all_news:
+        st.warning("No news articles found, showing the most recent articles...")
+        all_news += argaam_news[-3:] + mubasher_news[-3:]  # Show the last 3 from each source
+
     return all_news
 
 # Streamlit Application
@@ -157,4 +168,4 @@ if news_data:
     st.dataframe(negative_news)
 
 else:
-    st.warning("No news articles found.")
+    st.warning("No news articles found, even the latest news from each source.")
