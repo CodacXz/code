@@ -10,8 +10,9 @@ analyzer = SentimentIntensityAnalyzer()
 API_KEY = "1272ac9cec4e43108bd69ffd1dc231cb"  # Use Streamlit Secrets for API key
 NEWS_API_URL = "https://newsapi.org/v2/everything"
 
+# Modify the query to focus on Saudi Arabia stock market news
 params = {
-    "q": "stocks",
+    "q": "Saudi Arabia stock market OR Tadawul",  # Keywords for Saudi stock market
     "language": "en",
     "sortBy": "relevancy",
     "apiKey": API_KEY
@@ -38,8 +39,8 @@ for article in data['articles']:
 df = pd.DataFrame(news_data)
 
 # Display Dashboard
-st.title("Stock Market News Aggregator")
-st.write("Sentiment analysis of recent stock news.")
+st.title("Saudi Arabia Stock Market News Aggregator")
+st.write("Sentiment analysis of recent Saudi Arabia stock market news.")
 
 st.dataframe(df)
 
