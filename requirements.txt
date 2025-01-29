@@ -3,3 +3,4 @@ pandas
 requests
 vaderSentiment
 transformers
+beautifulsoup4
