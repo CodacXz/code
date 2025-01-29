@@ -4,7 +4,6 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
-import time
 
 # Initialize VADER Sentiment Analyzer
 analyzer = SentimentIntensityAnalyzer()
@@ -13,7 +12,7 @@ analyzer = SentimentIntensityAnalyzer()
 NEWS_API_KEY = "1272ac9cec4e43108bd69ffd1dc231cb"
 NEWS_API_URL = "https://newsapi.org/v2/everything"
 
-# Function to Fetch NewsAPI Data
+# Function to Fetch NewsAPI Data (Last 7 Days)
 @st.cache_data(ttl=86400)  # Cache data for 24 hours
 def fetch_newsapi_data():
     """
@@ -25,17 +24,20 @@ def fetch_newsapi_data():
         "language": "en",
         "sortBy": "publishedAt",
         "apiKey": NEWS_API_KEY,
-        "from": (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+        "from": (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')  # 7 days ago
     }
     try:
         response = requests.get(NEWS_API_URL, params=params)
+        st.write(f"NewsAPI Response Code: {response.status_code}")  # Debugging: response code
         response.raise_for_status()
-        return response.json().get("articles", [])
+        response_data = response.json()
+        st.write(f"NewsAPI Response Data: {response_data}")  # Debugging: response content
+        return response_data.get("articles", [])
     except requests.exceptions.RequestException as e:
         st.error(f"Error fetching data from NewsAPI: {e}")
         return []
 
-# Function to Scrape Argaam
+# Function to Scrape Argaam (with Last 7 Days assumption for latest news)
 def scrape_argaam():
     """
     Scrape latest Saudi stock market news from Argaam.
@@ -47,6 +49,7 @@ def scrape_argaam():
         response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
         articles = soup.select(".latest-articles .item a")
+        st.write(f"Argaam Response: {len(articles)} articles found")  # Debugging: Articles count from Argaam
         news_list = []
 
         for article in articles[:10]:  # Limit to 10 articles
@@ -67,7 +70,7 @@ def scrape_argaam():
         st.error(f"Error scraping Argaam: {e}")
         return []
 
-# Function to Scrape Mubasher
+# Function to Scrape Mubasher (with Last 7 Days assumption for latest news)
 def scrape_mubasher():
     """
     Scrape latest Saudi market news from Mubasher.
@@ -79,6 +82,7 @@ def scrape_mubasher():
         response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
         articles = soup.select(".content div.media-body h2 a")
+        st.write(f"Mubasher Response: {len(articles)} articles found")  # Debugging: Articles count from Mubasher
         news_list = []
 
         for article in articles[:10]:  # Limit to 10 articles
