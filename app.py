@@ -4,43 +4,54 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
+import time
 
-# Initialize VADER
+# Initialize VADER Sentiment Analyzer
 analyzer = SentimentIntensityAnalyzer()
 
-# Set up NewsAPI Configuration
-API_KEY = "1272ac9cec4e43108bd69ffd1dc231cb"
+# API Configuration for NewsAPI
+NEWS_API_KEY = "1272ac9cec4e43108bd69ffd1dc231cb"
 NEWS_API_URL = "https://newsapi.org/v2/everything"
 
+# Function to Fetch NewsAPI Data
+@st.cache_data(ttl=86400)  # Cache data for 24 hours
 def fetch_newsapi_data():
-    """Fetch news from NewsAPI focused on Saudi market."""
+    """
+    Fetch Saudi stock-related news using NewsAPI, including Argaam and Mubasher as domains.
+    """
     params = {
         "q": "Tadawul OR TASI OR 'Saudi stocks'",
-        "domains": "arabnews.com,saudigazette.com.sa",
+        "domains": "english.mubasher.info,argaam.com",
         "language": "en",
         "sortBy": "publishedAt",
-        "apiKey": API_KEY,
-        "from": (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d'),  # Last 24 hours
+        "apiKey": NEWS_API_KEY,
+        "from": (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
     }
-    response = requests.get(NEWS_API_URL, params=params)
-    if response.status_code == 200:
-        return response.json().get('articles', [])
-    else:
-        st.error("Failed to fetch NewsAPI data.")
+    try:
+        response = requests.get(NEWS_API_URL, params=params)
+        response.raise_for_status()
+        return response.json().get("articles", [])
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error fetching data from NewsAPI: {e}")
         return []
 
+# Function to Scrape Argaam
 def scrape_argaam():
-    """Scrape Argaam's latest Saudi stock market news."""
+    """
+    Scrape latest Saudi stock market news from Argaam.
+    """
     url = "https://www.argaam.com/en"
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
         articles = soup.select(".latest-articles .item a")
-
         news_list = []
+
         for article in articles[:10]:  # Limit to 10 articles
             title = article.get_text(strip=True)
-            link = article["href"]
+            link = "https://www.argaam.com" + article["href"]
             sentiment = analyzer.polarity_scores(title)
             news_list.append({
                 "Title": title,
@@ -53,18 +64,23 @@ def scrape_argaam():
             })
         return news_list
     except Exception as e:
-        st.error(f"Failed to scrape Argaam: {e}")
+        st.error(f"Error scraping Argaam: {e}")
         return []
 
+# Function to Scrape Mubasher
 def scrape_mubasher():
-    """Scrape Mubasher for the latest Saudi market news."""
+    """
+    Scrape latest Saudi market news from Mubasher.
+    """
     url = "https://english.mubasher.info/news/sa/now/latest"
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        response = requests.get(url)
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
         soup = BeautifulSoup(response.content, "html.parser")
         articles = soup.select(".content div.media-body h2 a")
-
         news_list = []
+
         for article in articles[:10]:  # Limit to 10 articles
             title = article.get_text(strip=True)
             link = article["href"]
@@ -80,54 +96,65 @@ def scrape_mubasher():
             })
         return news_list
     except Exception as e:
-        st.error(f"Failed to scrape Mubasher: {e}")
+        st.error(f"Error scraping Mubasher: {e}")
         return []
 
-@st.cache_data(ttl=86400)  # Cache for 1 day (24 hours)
+@st.cache_data(ttl=86400)  # Cache the combined news for 1 day
 def fetch_all_news():
-    """Fetch and combine news from all sources."""
-    # Fetch NewsAPI Data
+    """
+    Fetch and combine news from NewsAPI (global sources), Argaam, and Mubasher.
+    """
     api_news = fetch_newsapi_data()
-
-    # Scrape Argaam and Mubasher
     argaam_news = scrape_argaam()
     mubasher_news = scrape_mubasher()
 
-    # Combine all news
-    news_data = []
+    all_news = []
+
+    # Process NewsAPI articles
     for article in api_news:
-        sentiment = analyzer.polarity_scores(article['title'])
-        news_data.append({
-            "Title": article['title'],
-            "Description": article.get('description', "No description available."),
-            "URL": article['url'],
+        title = article['title']
+        description = article.get('description', "No description available.")
+        url = article['url']
+        sentiment = analyzer.polarity_scores(title)
+        
+        all_news.append({
+            "Title": title,
+            "Description": description,
+            "URL": url,
             "Positive": sentiment["pos"],
             "Neutral": sentiment["neu"],
             "Negative": sentiment["neg"],
             "Compound": sentiment["compound"]
         })
+    
+    # Combine Argaam and Mubasher with NewsAPI articles
+    all_news += argaam_news + mubasher_news
+    return all_news
 
-    return news_data + argaam_news + mubasher_news
-
-# Main Dashboard
+# Streamlit Application
 st.title("Saudi Stock Market News & Sentiment Analysis")
 st.write("Sentiment analysis of recent Saudi stock market news (updated daily).")
 
-news = fetch_all_news()
+st.info("Fetching latest news from multiple sources...")
+news_data = fetch_all_news()
 
-# Display the news
-if news:
-    df = pd.DataFrame(news)
+if news_data:
+    # Create DataFrame to display news
+    df = pd.DataFrame(news_data)
 
-    # Show All News
+    # Display all news
     st.subheader("All News")
     st.dataframe(df)
 
-    # Filtered Views
+    # Display top positive news
     st.subheader("Top Positive News")
-    st.dataframe(df[df["Compound"] > 0.5])
+    positive_news = df[df["Compound"] > 0.5]
+    st.dataframe(positive_news)
 
+    # Display top negative news
     st.subheader("Top Negative News")
-    st.dataframe(df[df["Compound"] < -0.5])
+    negative_news = df[df["Compound"] < -0.5]
+    st.dataframe(negative_news)
+
 else:
     st.warning("No news articles found.")
